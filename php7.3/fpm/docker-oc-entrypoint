@@ -97,6 +97,63 @@ if [[ "$1" == apache2* ]] && [ "${FWD_REMOTE_IP,,}" == "true" ]; then
   a2enconf docker-oc-apache -q
 fi
 
+# Set up SSH directory, optionally used for a couple purposes below.
+SSH_DIR=$HOME/.ssh
+if [[ ! -d $SSH_DIR ]]; then
+  mkdir $SSH_DIR
+  chmod 0700 $SSH_DIR
+fi
+
+# SSH_AUTHORIZED_KEYS may be set to one or more public keys (separated by
+# newlines or "|"), and gets written to ~/.ssh/authorized_keys. It starts sshd
+# and enables SSH root access to the holder of the corresponding private keys.
+if [[ -n "$SSH_AUTHORIZED_KEYS" ]]; then
+  echo "Starting SSHD"
+  /usr/sbin/sshd
+
+  # If restarting, this setup has been done, so skip it.
+  if [[ ! -e $SSH_DIR/authorized_keys ]]; then
+    # This is the public key of the "gristsite-ecs-key" keypair to allow root
+    # SSH access into the ECS Fargate container.
+    echo "$SSH_AUTHORIZED_KEYS" | tr '|' '\n' >> $SSH_DIR/authorized_keys
+    chmod 0600 $SSH_DIR/authorized_keys
+
+    # As a convenience to the SSH'ing user, cd to the folder that matters.
+    echo "cd $(pwd) >& /dev/null" >> $HOME/.bash_profile
+  fi
+fi
+
+# Setting GIT_CONTENT_REPO will clone the repo and symlink /themes and /plugins
+# from it. Set GIT_CONTENT_BRANCH to use a branch other than "master".
+#
+# GITHUB_DEPLOY_KEY may be set to ssh private key for access to a private
+# github repo. Pipe characters ("|") get replaced by newlines, to make it
+# easier to pass in the private key via environment.
+if [[ -n "$GIT_CONTENT_REPO" && ! -e /repo ]]; then
+  if [[ -n "$GITHUB_DEPLOY_KEY" ]]; then
+    ssh-keyscan github.com >> $SSH_DIR/known_hosts
+    echo "$GITHUB_DEPLOY_KEY" | tr '|' '\n' > $SSH_DIR/id_rsa
+    chmod 0600 $SSH_DIR/id_rsa
+  else
+    echo "GITHUB_DEPLOY_KEY should be set"; exit 1
+  fi
+
+  # Clone the git repo (a subdirectory of current dir, which seems important for php settings).
+  git clone --depth 1 --branch "${GIT_CONTENT_BRANCH:-master}" "$GIT_CONTENT_REPO" repo
+
+  # Give access to the web server, so files can be changed online (although
+  # that's not recommended, since it's easy to forget to pull them into git).
+  chown -R www-data:www-data repo
+
+  # Point /themes and /plugins directories to repo
+  mv ./themes ./themes-orig
+  mv ./plugins ./plugins-orig
+  ln -s repo/themes ./themes
+  ln -s repo/plugins ./plugins
+  # We could also restore the "october" set of plugins.
+  mv ./plugins-orig/october ./plugins/
+fi
+
 # Start a cron process within the container
 if [ "${ENABLE_CRON,,}" == "true" ]; then
   php artisan schedule:run # required to prime db connection
