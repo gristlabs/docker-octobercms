@@ -97,6 +97,31 @@ if [[ "$1" == apache2* ]] && [ "${FWD_REMOTE_IP,,}" == "true" ]; then
   a2enconf docker-oc-apache -q
 fi
 
+
+# Setting GIT_CONTENT_REPO will clone the repo and symlink /themes and /plugins
+# from it. Set GIT_CONTENT_BRANCH to use a branch other than "master".
+#
+# GITHUB_DEPLOY_KEY may be set to ssh private key for access to a private
+# github repo. Pipe characters ("|") get replaced by newlines, to make it
+# easier to pass in the private key via environment.
+if [[ -n "$GIT_CONTENT_REPO" ]]; then
+  if [[ -n "$GITHUB_DEPLOY_KEY" ]]; then
+    mkdir -p $HOME/.ssh
+    chmod 0700 $HOME/.ssh
+    echo "$GITHUB_DEPLOY_KEY" | tr '|' '\n' > $HOME/.ssh/id_rsa
+    chmod 0600 $HOME/.ssh/id_rsa
+  fi
+
+  # Clone the git repo
+  git clone --single-branch --branch "${GIT_CONTENT_BRANCH:-master}" "$GIT_CONTENT_REPO" /repo
+
+  # Point /themes and /plugins directories to /repo
+  mv ./themes ./themes-orig
+  mv ./plugins ./plugins-orig
+  ln -s ./themes /repo/themes
+  ln -s ./plugins /repo/plugins
+fi
+
 # Start a cron process within the container
 if [ "${ENABLE_CRON,,}" == "true" ]; then
   php artisan schedule:run # required to prime db connection
