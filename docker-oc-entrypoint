@@ -104,9 +104,10 @@ if [[ ! -d $SSH_DIR ]]; then
   chmod 0700 $SSH_DIR
 fi
 
-# SSH_ENABLE_KEY may be set to a public key, and enables SSH root access to the
-# holder of the private key. Start sshd and add it to authorized_keys.
-if [[ -n "$SSH_ENABLE_KEY" ]]; then
+# SSH_AUTHORIZED_KEYS may be set to one or more public keys (separated by
+# newlines or "|"), and gets written to ~/.ssh/authorized_keys. It starts sshd
+# and enables SSH root access to the holder of the corresponding private keys.
+if [[ -n "$SSH_AUTHORIZED_KEYS" ]]; then
   echo "Starting SSHD"
   /usr/sbin/sshd
 
@@ -114,7 +115,7 @@ if [[ -n "$SSH_ENABLE_KEY" ]]; then
   if [[ ! -e $SSH_DIR/authorized_keys ]]; then
     # This is the public key of the "gristsite-ecs-key" keypair to allow root
     # SSH access into the ECS Fargate container.
-    echo "$SSH_ENABLE_KEY" >> $SSH_DIR/authorized_keys
+    echo "$SSH_AUTHORIZED_KEYS" | tr '|' '\n' >> $SSH_DIR/authorized_keys
     chmod 0600 $SSH_DIR/authorized_keys
 
     # As a convenience to the SSH'ing user, cd to the folder that matters.
