@@ -138,19 +138,19 @@ if [[ -n "$GIT_CONTENT_REPO" && ! -e /repo ]]; then
     echo "GITHUB_DEPLOY_KEY should be set"; exit 1
   fi
 
-  # Clone the git repo
-  git clone --depth 1 --branch "${GIT_CONTENT_BRANCH:-master}" "$GIT_CONTENT_REPO" /repo
+  # Clone the git repo (a subdirectory of current dir, which seems important for php settings).
+  git clone --depth 1 --branch "${GIT_CONTENT_BRANCH:-master}" "$GIT_CONTENT_REPO" repo
 
   # Give access to the web server, so files can be changed online (although
   # that's not recommended, since it's easy to forget to pull them into git).
-  chown -R www-data:www-data /repo
+  chown -R www-data:www-data repo
 
-  # Point /themes and /plugins directories to /repo
+  # Point /themes and /plugins directories to repo
   mv ./themes ./themes-orig
   mv ./plugins ./plugins-orig
-  ln -s /repo/themes ./themes
-  ln -s /repo/plugins ./plugins
-  # Restore the "october" set of plugins in the /repo/plugins directory.
+  ln -s repo/themes ./themes
+  ln -s repo/plugins ./plugins
+  # We could also restore the "october" set of plugins.
   mv ./plugins-orig/october ./plugins/
 fi
 
