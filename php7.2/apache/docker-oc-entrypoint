@@ -109,6 +109,8 @@ fi
 # and enables SSH root access to the holder of the corresponding private keys.
 if [[ -n "$SSH_AUTHORIZED_KEYS" ]]; then
   echo "Starting SSHD"
+  # Disable password authentication before starting SSHD.
+  sed -i "/PasswordAuthentication yes/c\PasswordAuthentication no" /etc/ssh/sshd_config
   /usr/sbin/sshd
 
   # If restarting, this setup has been done, so skip it.
